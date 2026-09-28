@@ -24,6 +24,8 @@ A free, local-first GitHub Action for translating and synchronizing English and 
 
 Create `.github/workflows/translate-readme.yml` in the repository that contains the README you want to translate:
 
+The same workflow works whether `README.md` is written in English or Korean. Do not set `from`; the Action detects the source language from the content and selects the opposite-language filename automatically.
+
 ```yaml
 name: Sync bilingual README
 
@@ -67,6 +69,13 @@ Adding the workflow file does not immediately run it when `README.md` has not ch
 3. Select **Run workflow**, choose the default branch, and run it.
 4. Wait for the workflow to finish. It detects the dominant language in `README.md`, then creates, commits, and pushes `README.ko.md` for English source content or `README.en.md` for Korean source content.
 
+| Contents of source `README.md` | Generated translation |
+| ------------------------------ | --------------------- |
+| English                        | `README.ko.md`        |
+| Korean                         | `README.en.md`        |
+
+You do not need to change the workflow when the source language differs between repositories. In both cases, keep `README.md` as the source of truth and use exactly the same `source-file: README.md` setting.
+
 The workflow must exist on the default branch before the **Run workflow** button is available. If the push is denied, open **Settings → Actions → General → Workflow permissions** and make sure GitHub Actions is allowed to write repository contents. Organization policy or branch protection can still prevent direct pushes.
 
 After the first translation, every later push that changes `README.md` runs the workflow automatically. You can also use **Run workflow** again whenever you want to regenerate the translation without editing the source README.
@@ -95,7 +104,25 @@ The first run downloads the translation model. Later runs reuse the Hugging Face
 
 ## Usage
 
-### English to Korean
+### One workflow for either source language
+
+```yaml
+- uses: choiwlsd/readme-translate-kr-en@v0.2.5
+  with:
+    source-file: README.md
+```
+
+This is the recommended configuration:
+
+- English `README.md` generates `README.ko.md`.
+- Korean `README.md` generates `README.en.md`.
+- A manually corrected target README stays the target and never becomes the source.
+
+### Force a source language
+
+Normally, leave `from` unset. Set it only when automatic content detection is unsuitable.
+
+English to Korean:
 
 ```yaml
 - uses: choiwlsd/readme-translate-kr-en@v0.2.5
@@ -104,9 +131,7 @@ The first run downloads the translation model. Later runs reuse the Hugging Face
     source-file: README.md
 ```
 
-The default target is `README.ko.md`.
-
-### Korean to English
+Korean to English:
 
 ```yaml
 - uses: choiwlsd/readme-translate-kr-en@v0.2.5
@@ -114,8 +139,6 @@ The default target is `README.ko.md`.
     from: ko
     source-file: README.md
 ```
-
-The default target is `README.en.md`.
 
 ### Custom filenames
 
@@ -127,9 +150,9 @@ The default target is `README.en.md`.
     target-file: docs/README.en.md
 ```
 
-### Automatic source detection
+### Automatic changed-file detection
 
-Omit `from` and `source-file` to detect a single changed standard README from the latest commit:
+For advanced workflows, omit both `from` and `source-file` to select a single changed standard README from the latest commit:
 
 ```yaml
 - uses: choiwlsd/readme-translate-kr-en@v0.2.5
@@ -144,6 +167,8 @@ Use `fetch-depth: 0` when relying on automatic detection and automatic push:
 ```
 
 If more than one standard README changed in the latest commit, specify `from` and `source-file` explicitly.
+
+For the normal single-source workflow, prefer `source-file: README.md`. This keeps the behavior identical across English and Korean repositories and prevents a manually edited translation from being selected as a new source.
 
 ## Inputs
 
@@ -163,7 +188,7 @@ The Action installs the Python translation dependencies, restores the cached Hug
 
 The configured source README is the source of truth. The Action records the last source and machine-generated translation in `.readme-translate-state.json`. On later runs, it translates only Markdown elements whose source changed. Existing target elements are preserved when their source is unchanged, including wording that a user corrected manually. If a source paragraph, list item, heading, or other element changes, its previous target element is discarded and translated again.
 
-Keep the workflow trigger limited to the configured source file. For example, when a Korean `README.md` generates `README.en.md`, use `paths: [README.md]`. Editing only `README.en.md` then does not start a reverse translation.
+Keep the workflow trigger limited to `README.md`, regardless of whether it contains English or Korean. Editing only `README.en.md` or `README.ko.md` then does not start a reverse translation.
 
 The state file is committed with the README files. Repositories upgrading from a release without a state file attempt to recover the previous machine translation from the latest `github-actions[bot]` commit.
 
